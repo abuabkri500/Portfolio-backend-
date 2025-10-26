@@ -1,4 +1,4 @@
-const { User, RecentProject } = require("../model/model.js");
+const { User, RecentProject } = require("../Model/model.js");
 const bcrypt = require("bcryptjs");
 const { v2: cloudinary } = require("cloudinary");
 const nodemailer = require("nodemailer");
