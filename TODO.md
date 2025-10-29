@@ -1,0 +1,4 @@
+- [x] Add getRecentProjects controller function in controller/controller.js
+- [x] Add GET route for /get-recent-projects in routes/user.routes.js
+- [x] Update module.exports in controller.js to include getRecentProjects
+- [x] Test the new endpoint

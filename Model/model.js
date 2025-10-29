@@ -13,7 +13,7 @@ const recentProjectSchema = new mongoose.Schema(
     profilePicture: { type: String, require: true },
     projectTitle: { type: String, require: true },
     projectDescription: { type: String, require: true },
-    profileLink: { type: String, require: true },
+    projectLink: { type: String, require: true },
   },
   { timestamps: true }
 );

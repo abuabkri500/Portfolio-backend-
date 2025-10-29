@@ -70,6 +70,51 @@ const uploadProject = async (req, res) => {
   }
 };
 
+// Controller for fetching recent projects
+const getRecentProjects = async (req, res) => {
+  try {
+    const projects = await RecentProject.find().sort({ createdAt: -1 });
+    res.status(200).json({ projects });
+  } catch (error) {
+    console.error("Fetch recent projects error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Controller for deleting a project
+const deleteProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Project ID is required" });
+    }
+
+    const project = await RecentProject.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Delete image from Cloudinary if it exists
+    if (project.profilePicture) {
+      try {
+        const publicId = project.profilePicture.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`projects/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error("Cloudinary delete error:", cloudinaryError);
+        // Continue with deletion even if Cloudinary fails
+      }
+    }
+
+    await RecentProject.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Project deleted successfully" });
+  } catch (error) {
+    console.error("Delete project error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // Controller for sending message
 const sendMessage = async (req, res) => {
   try {
@@ -95,4 +140,4 @@ const sendMessage = async (req, res) => {
   }
 };
 
-module.exports = { uploadProject, sendMessage };
+module.exports = { uploadProject, getRecentProjects, deleteProject, sendMessage };
