@@ -45,7 +45,7 @@ const uploadProject = async (req, res) => {
     const file = req.file;
 
     if (!projectTitle || !projectDescription || !projectLink || !file) {
-      return res.status(400).json({ message: "All fields are required, including image" });
+      return res.status(400).json({ message: "All fields are required and including the image" });
     }
 
     const imageUrl = await maybeUploadToCloudinary(file.path, "projects");
