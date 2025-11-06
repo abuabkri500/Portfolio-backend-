@@ -10,14 +10,14 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || process.env.DEPLOYED_URL || "*",
+  origin: "https://abubakri-portfolio.vercel.app",
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use("/api", userRoutes);
+app.use("/", userRoutes);
 
 // Default route
 app.get("/", (req, res) => {
