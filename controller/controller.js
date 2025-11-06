@@ -102,7 +102,7 @@ const deleteProject = async (req, res) => {
         await cloudinary.uploader.destroy(`projects/${publicId}`);
       } catch (cloudinaryError) {
         console.error("Cloudinary delete error:", cloudinaryError);
-        // Continue with deletion even if Cloudinary fails
+        // Continue to delete the cloudinary even if its fails
       }
     }
 
@@ -126,7 +126,7 @@ const sendMessage = async (req, res) => {
 
     const mailOptions = {
       from: email,
-      to: process.env.EMAIL_USER, // Your email
+      to: process.env.EMAIL_USER,
       subject: `Portfolio Contact from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     };
