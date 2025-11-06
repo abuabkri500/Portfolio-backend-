@@ -19,6 +19,6 @@ const recentProjectSchema = new mongoose.Schema(
 );
 
 const User = mongoose.model("user", userSchema);
-const RecentProject = mongoose.model("recentPriject", recentProjectSchema);
+const RecentProject = mongoose.model("recentProject", recentProjectSchema);
 
 module.exports = { User, RecentProject };
