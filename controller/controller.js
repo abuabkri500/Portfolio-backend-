@@ -128,11 +128,18 @@ const deleteProject = async (req, res) => {
 // Controller for sending message
 const sendMessage = async (req, res) => {
   try {
+    console.log("Send message request received");
+    console.log("Body:", req.body);
+
     const { name, email, message } = req.body;
 
     if (!name || !email || !message) {
+      console.log("Missing fields:", { name, namePresent: !!name, emailPresent: !!email, messagePresent: !!message });
       return res.status(400).json({ message: "All fields are required" });
     }
+
+    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
+    console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
 
     const mailOptions = {
       from: email,
@@ -141,7 +148,9 @@ const sendMessage = async (req, res) => {
       text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     };
 
+    console.log("Sending email...");
     await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully");
 
     res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {
