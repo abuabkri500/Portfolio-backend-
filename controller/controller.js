@@ -15,22 +15,18 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-async function maybeUploadToCloudinary(filePath, folder = "user_profiles") {
-  if (!filePath) return null;
+async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
+  if (!fileBuffer) return null;
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
+    const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${fileBuffer.toString('base64')}`, {
         folder,
         width: 300,
         height: 300,
         crop: "fill",
     });
-    fs.unlinkSync(filePath)
     return result.secure_url
   } catch (error) {
     console.error("Cloudinary upload error:", error);
-    try {
-      fs.unlinkSync(filePath);
-    } catch {}
     return null;
   }
 }
@@ -59,7 +55,7 @@ const uploadProject = async (req, res) => {
     }
 
     console.log("Uploading to Cloudinary...");
-    const imageUrl = await maybeUploadToCloudinary(file.path, "projects");
+    const imageUrl = await maybeUploadToCloudinary(file.buffer, "projects");
 
     if (!imageUrl) {
       console.log("Cloudinary upload failed");
