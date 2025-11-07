@@ -4,6 +4,11 @@ const { v2: cloudinary } = require("cloudinary");
 const nodemailer = require("nodemailer");
 const fs = require("fs");
 
+// Check if Cloudinary credentials are available
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.error("Cloudinary credentials are missing. Please check your environment variables.");
+}
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -41,19 +46,27 @@ const transporter = nodemailer.createTransport({
 // Controller for uploading a project
 const uploadProject = async (req, res) => {
   try {
+    console.log("Upload request received");
+    console.log("Body:", req.body);
+    console.log("File:", req.file);
+
     const { projectTitle, projectDescription, projectLink } = req.body;
     const file = req.file;
 
     if (!projectTitle || !projectDescription || !projectLink || !file) {
-      return res.status(400).json({ message: "All fields are required and including the image" });
+      console.log("Missing fields:", { projectTitle, projectDescription, projectLink, file: !!file });
+      return res.status(400).json({ message: "All fields are required, including the image" });
     }
 
+    console.log("Uploading to Cloudinary...");
     const imageUrl = await maybeUploadToCloudinary(file.path, "projects");
 
     if (!imageUrl) {
+      console.log("Cloudinary upload failed");
       return res.status(500).json({ message: "Image upload failed" });
     }
 
+    console.log("Saving to database...");
     const newProject = new RecentProject({
       profilePicture: imageUrl,
       projectTitle,
@@ -62,6 +75,7 @@ const uploadProject = async (req, res) => {
     });
 
     await newProject.save();
+    console.log("Project saved successfully");
 
     res.status(201).json({ message: "Project uploaded successfully", project: newProject });
   } catch (error) {
