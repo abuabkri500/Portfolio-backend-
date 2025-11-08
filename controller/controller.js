@@ -42,9 +42,9 @@ const transporter = nodemailer.createTransport({
 // Controller for uploading a project
 const uploadProject = async (req, res) => {
   try {
-    console.log("Upload request received");
+    console.log("Upload request received at:", new Date().toISOString());
     console.log("Body:", req.body);
-    console.log("File:", req.file);
+    console.log("File:", req.file ? "Present" : "Missing");
 
     const { projectTitle, projectDescription, projectLink } = req.body;
     const file = req.file;
