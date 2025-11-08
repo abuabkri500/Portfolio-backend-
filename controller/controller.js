@@ -32,10 +32,12 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 }
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: "apikey", // SendGrid username is always 'apikey'
+    pass: process.env.SENDGRID_API_KEY, // Your SendGrid API key
   },
 });
 
@@ -138,14 +140,17 @@ const sendMessage = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
-    console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
+    console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "Set" : "Not set");
 
     const mailOptions = {
-      from: email,
-      to: process.env.EMAIL_USER,
+      from: {
+        email: process.env.EMAIL_USER, // Your verified sender email
+        name: "Portfolio Contact Form"
+      },
+      to: process.env.EMAIL_USER, // Your email to receive messages
       subject: `Portfolio Contact from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+      html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
     };
 
     console.log("Sending email...");
