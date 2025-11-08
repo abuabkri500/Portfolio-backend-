@@ -32,13 +32,21 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 }
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  service: "gmail",
   auth: {
-    user: "apikey", // SendGrid username is always 'apikey'
-    pass: process.env.SENDGRID_API_KEY, // Your SendGrid API key
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
+  // Add connection options to handle timeouts better
+  pool: true, // Use pooled connections
+  maxConnections: 1,
+  maxMessages: 5,
+  rateDelta: 1000,
+  rateLimit: 5,
+  // Add timeout settings
+  connectionTimeout: 60000, // 60 seconds
+  greetingTimeout: 30000, // 30 seconds
+  socketTimeout: 60000, // 60 seconds
 });
 
 // Controller for uploading a project
@@ -140,13 +148,11 @@ const sendMessage = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "Set" : "Not set");
+    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
+    console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
 
     const mailOptions = {
-      from: {
-        email: process.env.EMAIL_USER, // Your verified sender email
-        name: "Portfolio Contact Form"
-      },
+      from: email, // Use the visitor's email as the sender
       to: process.env.EMAIL_USER, // Your email to receive messages
       subject: `Portfolio Contact from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
