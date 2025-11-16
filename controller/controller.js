@@ -32,18 +32,14 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 }
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: "apikey", // SendGrid username is always 'apikey'
+    pass: process.env.SENDGRID_API_KEY, // Your SendGrid API key
   },
-  // Add connection options to handle timeouts better
-  pool: true, // Use pooled connections
-  maxConnections: 1,
-  maxMessages: 5,
-  rateDelta: 1000,
-  rateLimit: 5,
-  // Add timeout settings
+  // Add timeout settings for better reliability
   connectionTimeout: 60000, // 60 seconds
   greetingTimeout: 30000, // 30 seconds
   socketTimeout: 60000, // 60 seconds
