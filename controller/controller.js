@@ -152,7 +152,8 @@ const sendMessage = async (req, res) => {
     console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
 
     const mailOptions = {
-      from: email, // Use the visitor's email as the sender
+      from: process.env.EMAIL_USER, // Must use your Gmail account as sender
+      replyTo: email, // Set visitor's email as reply-to so you can reply directly
       to: process.env.EMAIL_USER, // Your email to receive messages
       subject: `Portfolio Contact from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
