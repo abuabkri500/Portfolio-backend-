@@ -161,8 +161,20 @@ const sendMessage = async (req, res) => {
     };
 
     console.log("Sending email...");
-    await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully");
+    console.log("Mail options:", {
+      from: mailOptions.from,
+      replyTo: mailOptions.replyTo,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("Email sent successfully:", info.messageId);
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      throw emailError; // Re-throw to be caught by outer catch
+    }
 
     res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {
