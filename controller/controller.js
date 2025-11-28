@@ -39,15 +39,19 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Simplified timeout settings for serverless environments
-  connectionTimeout: 30000, // 30 seconds
-  greetingTimeout: 15000, // 15 seconds
-  socketTimeout: 30000, // 30 seconds
+  // Increased timeout settings for better reliability
+  connectionTimeout: 60000, // 60 seconds
+  greetingTimeout: 30000, // 30 seconds
+  socketTimeout: 60000, // 60 seconds
   // Disable connection pooling for serverless
   pool: false,
   // Add debug logging
   debug: true,
   logger: true,
+  // Additional options for serverless
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 // Controller for uploading a project
