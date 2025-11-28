@@ -33,24 +33,24 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  port: 465,
+  secure: true, // Use SSL
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Increased timeout settings for better reliability
-  connectionTimeout: 60000, // 60 seconds
-  greetingTimeout: 30000, // 30 seconds
-  socketTimeout: 60000, // 60 seconds
+  // Timeout settings for serverless
+  connectionTimeout: 30000, // 30 seconds
+  greetingTimeout: 15000, // 15 seconds
+  socketTimeout: 30000, // 30 seconds
   // Disable connection pooling for serverless
   pool: false,
   // Add debug logging
   debug: true,
   logger: true,
-  // Additional options for serverless
+  // TLS options
   tls: {
-    rejectUnauthorized: false
+    ciphers: 'SSLv3'
   }
 });
 
