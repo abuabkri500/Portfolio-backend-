@@ -17,7 +17,7 @@ const recentProjectSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+it ""
 const User = mongoose.model("user", userSchema);
 const RecentProject = mongoose.model("recentProject", recentProjectSchema);
 

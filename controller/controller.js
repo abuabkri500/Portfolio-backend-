@@ -31,27 +31,26 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
   }
 }
 
+// Alternative: Use a more reliable email service
+// For now, let's try a different approach with Gmail App Passwords
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // Use SSL
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS, // Must be Gmail App Password, not regular password
   },
-  // Timeout settings for serverless
-  connectionTimeout: 30000, // 30 seconds
-  greetingTimeout: 15000, // 15 seconds
-  socketTimeout: 30000, // 30 seconds
-  // Disable connection pooling for serverless
+  // Simplified settings for better compatibility
+  secure: true,
+  // Connection settings optimized for serverless
   pool: false,
-  // Add debug logging
+  maxConnections: 1,
+  // Timeout settings
+  connectionTimeout: 60000,
+  greetingTimeout: 30000,
+  socketTimeout: 60000,
+  // Debug logging
   debug: true,
   logger: true,
-  // TLS options
-  tls: {
-    ciphers: 'SSLv3'
-  }
 });
 
 // Controller for uploading a project
