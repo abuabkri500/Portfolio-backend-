@@ -32,21 +32,22 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 }
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Add connection options to handle timeouts better
-  pool: true, // Use pooled connections
-  maxConnections: 1,
-  maxMessages: 5,
-  rateDelta: 1000,
-  rateLimit: 5,
-  // Add timeout settings
-  connectionTimeout: 60000, // 60 seconds
-  greetingTimeout: 30000, // 30 seconds
-  socketTimeout: 60000, // 60 seconds
+  // Simplified timeout settings for serverless environments
+  connectionTimeout: 30000, // 30 seconds
+  greetingTimeout: 15000, // 15 seconds
+  socketTimeout: 30000, // 30 seconds
+  // Disable connection pooling for serverless
+  pool: false,
+  // Add debug logging
+  debug: true,
+  logger: true,
 });
 
 // Controller for uploading a project
