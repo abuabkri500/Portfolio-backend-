@@ -157,46 +157,39 @@ const sendMessage = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "Set" : "Not set");
-
-    // Try SendGrid first, fallback to Gmail if SendGrid fails
-    try {
-      const msg = {
-        to: process.env.EMAIL_USER, // Your email to receive messages
-        from: 'noreply@yourportfolio.com', // Use a verified sender in SendGrid
-        replyTo: email, // Visitor's email for replies
-        subject: `Portfolio Contact from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
-        html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
-      };
-
-      console.log("Sending email via SendGrid...");
-      await sgMail.send(msg);
-      console.log("Email sent successfully via SendGrid");
-      return res.status(200).json({ message: "Message sent successfully" });
-
-    } catch (sendgridError) {
-      console.log("SendGrid failed, trying Gmail fallback...");
-      console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
-      console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
-
-      const mailOptions = {
-        from: process.env.EMAIL_USER, // Must use your Gmail account as sender
-        replyTo: email, // Set visitor's email as reply-to so you can reply directly
-        to: process.env.EMAIL_USER, // Your email to receive messages
-        subject: `Portfolio Contact from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
-        html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
-      };
-
-      console.log("Sending email via Gmail...");
-      const info = await transporter.sendMail(mailOptions);
-      console.log("Email sent successfully via Gmail:", info.messageId);
-      return res.status(200).json({ message: "Message sent successfully" });
+    // Check if Gmail credentials are set
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("Gmail credentials not set in environment variables");
+      return res.status(500).json({ message: "Email service not configured" });
     }
+
+    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
+    console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set (length: " + process.env.EMAIL_PASS.length + ")" : "Not set");
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER, // Must use your Gmail account as sender
+      replyTo: email, // Set visitor's email as reply-to so you can reply directly
+      to: process.env.EMAIL_USER, // Your email to receive messages
+      subject: `Portfolio Contact from ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+      html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
+    };
+
+    console.log("Sending email via Gmail...");
+    console.log("Mail options:", {
+      from: mailOptions.from,
+      replyTo: mailOptions.replyTo,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully via Gmail:", info.messageId);
+    res.status(200).json({ message: "Message sent successfully" });
 
   } catch (error) {
     console.error("Send message error:", error);
+    console.error("Error details:", error.message);
     res.status(500).json({ message: "Failed to send message" });
   }
 };
