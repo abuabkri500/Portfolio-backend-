@@ -1,8 +1,12 @@
 const { User, RecentProject } = require("../Model/model.js");
 const bcrypt = require("bcryptjs");
 const { v2: cloudinary } = require("cloudinary");
+const sgMail = require("@sendgrid/mail");
 const nodemailer = require("nodemailer");
 const fs = require("fs");
+
+// Set SendGrid API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Check if Cloudinary credentials are available
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
@@ -31,19 +35,17 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
   }
 }
 
-// Alternative: Use a more reliable email service
-// For now, let's try a different approach with Gmail App Passwords
+// Email transporter using Gmail with optimized settings for serverless
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use TLS
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Must be Gmail App Password, not regular password
+    pass: process.env.EMAIL_PASS, // Must be Gmail App Password
   },
-  // Connection settings optimized for serverless
-  pool: false,
-  maxConnections: 1,
+  // Optimized for serverless environments
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
   // Timeout settings
   connectionTimeout: 60000,
   greetingTimeout: 30000,
@@ -155,35 +157,44 @@ const sendMessage = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
-    console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
+    console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "Set" : "Not set");
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER, // Must use your Gmail account as sender
-      replyTo: email, // Set visitor's email as reply-to so you can reply directly
-      to: process.env.EMAIL_USER, // Your email to receive messages
-      subject: `Portfolio Contact from ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
-      html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
-    };
-
-    console.log("Sending email...");
-    console.log("Mail options:", {
-      from: mailOptions.from,
-      replyTo: mailOptions.replyTo,
-      to: mailOptions.to,
-      subject: mailOptions.subject
-    });
-
+    // Try SendGrid first, fallback to Gmail if SendGrid fails
     try {
+      const msg = {
+        to: process.env.EMAIL_USER, // Your email to receive messages
+        from: 'noreply@yourportfolio.com', // Use a verified sender in SendGrid
+        replyTo: email, // Visitor's email for replies
+        subject: `Portfolio Contact from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+        html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
+      };
+
+      console.log("Sending email via SendGrid...");
+      await sgMail.send(msg);
+      console.log("Email sent successfully via SendGrid");
+      return res.status(200).json({ message: "Message sent successfully" });
+
+    } catch (sendgridError) {
+      console.log("SendGrid failed, trying Gmail fallback...");
+      console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
+      console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "Not set");
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER, // Must use your Gmail account as sender
+        replyTo: email, // Set visitor's email as reply-to so you can reply directly
+        to: process.env.EMAIL_USER, // Your email to receive messages
+        subject: `Portfolio Contact from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+        html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong> ${message.replace(/\n/g, '<br>')}</p>`,
+      };
+
+      console.log("Sending email via Gmail...");
       const info = await transporter.sendMail(mailOptions);
-      console.log("Email sent successfully:", info.messageId);
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError);
-      throw emailError; // Re-throw to be caught by outer catch
+      console.log("Email sent successfully via Gmail:", info.messageId);
+      return res.status(200).json({ message: "Message sent successfully" });
     }
 
-    res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {
     console.error("Send message error:", error);
     res.status(500).json({ message: "Failed to send message" });
