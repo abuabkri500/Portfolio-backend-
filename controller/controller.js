@@ -130,7 +130,7 @@ const deleteProject = async (req, res) => {
         const publicId = project.profilePicture.split('/').pop().split('.')[0];
         await cloudinary.uploader.destroy(`projects/${publicId}`);
       } catch (cloudinaryError) {
-        console.error("Cloudinary delete error:", cloudinaryError);
+        console.log("Cloudinary delete error:", cloudinaryError);
         // Continue to delete the cloudinary even if its fails
       }
     }
@@ -139,7 +139,7 @@ const deleteProject = async (req, res) => {
 
     res.status(200).json({ message: "Project deleted successfully" });
   } catch (error) {
-    console.error("Delete project error:", error);
+    console.log("Delete project error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
