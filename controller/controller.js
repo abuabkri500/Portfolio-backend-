@@ -34,13 +34,13 @@ async function maybeUploadToCloudinary(fileBuffer, folder = "user_profiles") {
 // Alternative: Use a more reliable email service
 // For now, let's try a different approach with Gmail App Passwords
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // Use TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS, // Must be Gmail App Password, not regular password
   },
-  // Simplified settings for better compatibility
-  secure: true,
   // Connection settings optimized for serverless
   pool: false,
   maxConnections: 1,
@@ -51,6 +51,9 @@ const transporter = nodemailer.createTransport({
   // Debug logging
   debug: true,
   logger: true,
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 // Controller for uploading a project
