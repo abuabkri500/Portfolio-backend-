@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const { v2: cloudinary } = require("cloudinary");
 const sgMail = require("@sendgrid/mail");
 const nodemailer = require("nodemailer");
+const mg = require('nodemailer-mailgun-transport');
 const fs = require("fs");
 
 // Set SendGrid API key
@@ -61,11 +62,34 @@ const transporter = nodemailer.createTransport({
 // Verify transporter connection on startup
 transporter.verify((error, success) => {
   if (error) {
-    console.error("❌ Nodemailer transporter verification failed:", error);
+    console.error("Nodemailer transporter verification failed:", error);
   } else {
-    console.log("✅ Nodemailer transporter is ready to send emails");
+    console.log("Nodemailer transporter is ready to send emails");
   }
 });
+
+// Setup Mailgun transporter (fallback) if Mailgun env vars are present
+let mgTransporter = null;
+if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
+  try {
+    const mgAuth = {
+      auth: {
+        api_key: process.env.MAILGUN_API_KEY,
+        domain: process.env.MAILGUN_DOMAIN,
+      }
+    };
+    mgTransporter = nodemailer.createTransport(mg(mgAuth));
+    mgTransporter.verify && mgTransporter.verify((err) => {
+      if (err) console.log('Mailgun transporter verification failed:', err);
+      else console.log('Mailgun transporter is ready (fallback)');
+    });
+  } catch (err) {
+    console.error('Failed to configure Mailgun transporter:', err);
+    mgTransporter = null;
+  }
+} else {
+  console.log('Mailgun not configured. To enable fallback set MAILGUN_API_KEY and MAILGUN_DOMAIN in environment.');
+}
 
 // Controller for uploading a project
 const uploadProject = async (req, res) => {
@@ -208,16 +232,43 @@ const sendMessage = async (req, res) => {
       to: mailOptions.to,
       subject: mailOptions.subject
     });
+    // Try SMTP first
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Email sent successfully via Gmail (SMTP)");
+      console.log("Message ID:", info.messageId);
+      console.log("Response:", info.response);
+      return res.status(200).json({
+        message: "Message sent successfully (via SMTP)",
+        transport: 'smtp',
+        messageId: info.messageId
+      });
+    } catch (smtpError) {
+      console.error("SMTP send failed:", smtpError && smtpError.message);
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully via Gmail");
-    console.log("Message ID:", info.messageId);
-    console.log("Response:", info.response);
-    
-    res.status(200).json({ 
-      message: "Message sent successfully",
-      messageId: info.messageId 
-    });
+      // If connection timed out or SMTP blocked, try Mailgun fallback when configured
+      const isTimeout = smtpError && (smtpError.code === 'ETIMEDOUT' || (smtpError.message && smtpError.message.toLowerCase().includes('connection timeout')));
+      if (isTimeout && mgTransporter) {
+        try {
+          console.log('⤴️ Attempting Mailgun fallback (HTTP API)');
+          const mgInfo = await mgTransporter.sendMail(mailOptions);
+          console.log('✅ Email sent successfully via Mailgun fallback');
+          console.log('Mailgun response:', mgInfo);
+          return res.status(200).json({
+            message: 'Message sent successfully (via Mailgun fallback)',
+            transport: 'mailgun',
+            info: mgInfo
+          });
+        } catch (mgErr) {
+          console.error('Mailgun fallback failed:', mgErr);
+          // fall through to return error below
+          smtpError = mgErr; // override for user message
+        }
+      }
+
+      // If we reach here, no fallback succeeded
+      throw smtpError;
+    }
 
   } catch (error) {
     console.error("❌ Send message error occurred");
@@ -258,21 +309,45 @@ const testEmailConnection = async (req, res) => {
     }
 
     // Verify the transporter
-    const verified = await transporter.verify();
-    
-    if (verified) {
-      console.log("✅ Email transporter is working correctly");
-      return res.status(200).json({ 
-        success: true,
-        message: "Email service is configured and working!",
-        email: process.env.EMAIL_USER,
-        smtpHost: "smtp.gmail.com",
-        smtpPort: 465
-      });
-    } else {
-      return res.status(500).json({ 
+    try {
+      const verified = await transporter.verify();
+      if (verified) {
+        console.log("✅ Email transporter is working correctly");
+        return res.status(200).json({
+          success: true,
+          message: "Email service is configured and working (SMTP)!",
+          email: process.env.EMAIL_USER,
+          smtpHost: "smtp.gmail.com",
+          smtpPort: 465
+        });
+      }
+    } catch (smtpErr) {
+      console.error('SMTP verify error:', smtpErr && smtpErr.message);
+      // If SMTP fails but Mailgun configured, report Mailgun availability
+      if (mgTransporter) {
+        try {
+          mgTransporter.verify && await mgTransporter.verify();
+          console.log('Mailgun is configured and appears available (fallback)');
+          return res.status(200).json({
+            success: true,
+            message: 'SMTP verify failed but Mailgun fallback is configured and available',
+            smtpError: smtpErr && smtpErr.message,
+            mailgunConfigured: true
+          });
+        } catch (mgErr) {
+          console.error('Mailgun verify also failed:', mgErr && mgErr.message);
+          return res.status(500).json({
+            success: false,
+            message: 'Both SMTP and Mailgun verification failed',
+            smtpError: smtpErr && smtpErr.message,
+            mailgunError: mgErr && mgErr.message
+          });
+        }
+      }
+      return res.status(500).json({
         success: false,
-        message: "Email verification failed"
+        message: 'SMTP verification failed and Mailgun not configured',
+        error: smtpErr && smtpErr.message
       });
     }
   } catch (error) {
