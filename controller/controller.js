@@ -1,13 +1,10 @@
 const { User, RecentProject } = require("../Model/model.js");
 const bcrypt = require("bcryptjs");
 const { v2: cloudinary } = require("cloudinary");
-const sgMail = require("@sendgrid/mail");
 const nodemailer = require("nodemailer");
 const mg = require('nodemailer-mailgun-transport');
 const fs = require("fs");
-
-// Set SendGrid API key
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const fs = require("fs");
 
 // Check if Cloudinary credentials are available
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
