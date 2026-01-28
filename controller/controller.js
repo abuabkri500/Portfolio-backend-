@@ -4,7 +4,7 @@ const { v2: cloudinary } = require("cloudinary");
 const nodemailer = require("nodemailer");
 const mg = require('nodemailer-mailgun-transport');
 const fs = require("fs");
-const fs = require("fs");
+const { google } = require('googleapis');
 
 // Check if Cloudinary credentials are available
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
@@ -86,6 +86,33 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
   }
 } else {
   console.log('Mailgun not configured. To enable fallback set MAILGUN_API_KEY and MAILGUN_DOMAIN in environment.');
+}
+
+// Setup Gmail API transporter (alternative fallback for Render/serverless)
+let gmailApiTransporter = null;
+if (process.env.GMAIL_API_REFRESH_TOKEN && process.env.GMAIL_API_CLIENT_ID && process.env.GMAIL_API_CLIENT_SECRET) {
+  try {
+    gmailApiTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.GMAIL_API_CLIENT_ID,
+        clientSecret: process.env.GMAIL_API_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_API_REFRESH_TOKEN,
+      }
+    });
+
+    gmailApiTransporter.verify && gmailApiTransporter.verify((err) => {
+      if (err) console.log('Gmail API transporter verification failed:', err);
+      else console.log('Gmail API transporter is ready (OAuth2 fallback)');
+    });
+  } catch (err) {
+    console.error('Failed to configure Gmail API transporter:', err);
+    gmailApiTransporter = null;
+  }
+} else {
+  console.log('Gmail API not configured. To use as fallback set GMAIL_API_REFRESH_TOKEN, GMAIL_API_CLIENT_ID, and GMAIL_API_CLIENT_SECRET in environment.');
 }
 
 // Controller for uploading a project
@@ -177,14 +204,14 @@ const deleteProject = async (req, res) => {
 // Controller for sending message
 const sendMessage = async (req, res) => {
   try {
-    console.log("📧 Send message request received at:", new Date().toISOString());
+    console.log("Send message request received at:", new Date().toISOString());
     console.log("Body:", req.body);
 
     const { name, email, message } = req.body;
 
     // Validation
     if (!name || !email || !message) {
-      console.log("❌ Missing fields:", { name, namePresent: !!name, emailPresent: !!email, messagePresent: !!message });
+      console.log("Missing fields:", { name, namePresent: !!name, emailPresent: !!email, messagePresent: !!message });
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -196,12 +223,12 @@ const sendMessage = async (req, res) => {
 
     // Check if Gmail credentials are set
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ Gmail credentials not set in environment variables");
+      console.error("Gmail credentials not set in environment variables");
       return res.status(500).json({ message: "Email service not configured. Admin please check environment variables." });
     }
 
-    console.log("🔑 EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
-    console.log("🔑 EMAIL_PASS length:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : "Not set");
+    console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "Not set");
+    console.log("EMAIL_PASS length:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : "Not set");
 
     const mailOptions = {
       from: process.env.EMAIL_USER, // Must use your Gmail account as sender
@@ -232,7 +259,7 @@ const sendMessage = async (req, res) => {
     // Try SMTP first
     try {
       const info = await transporter.sendMail(mailOptions);
-      console.log("✅ Email sent successfully via Gmail (SMTP)");
+      console.log("Email sent successfully via Gmail (SMTP)");
       console.log("Message ID:", info.messageId);
       console.log("Response:", info.response);
       return res.status(200).json({
@@ -245,11 +272,12 @@ const sendMessage = async (req, res) => {
 
       // If connection timed out or SMTP blocked, try Mailgun fallback when configured
       const isTimeout = smtpError && (smtpError.code === 'ETIMEDOUT' || (smtpError.message && smtpError.message.toLowerCase().includes('connection timeout')));
+      
       if (isTimeout && mgTransporter) {
         try {
-          console.log('⤴️ Attempting Mailgun fallback (HTTP API)');
+          console.log('Attempting Mailgun fallback (HTTP API)');
           const mgInfo = await mgTransporter.sendMail(mailOptions);
-          console.log('✅ Email sent successfully via Mailgun fallback');
+          console.log('Email sent successfully via Mailgun fallback');
           console.log('Mailgun response:', mgInfo);
           return res.status(200).json({
             message: 'Message sent successfully (via Mailgun fallback)',
@@ -258,17 +286,34 @@ const sendMessage = async (req, res) => {
           });
         } catch (mgErr) {
           console.error('Mailgun fallback failed:', mgErr);
-          // fall through to return error below
-          smtpError = mgErr; // override for user message
+          // Try Gmail API next if Mailgun fails
         }
       }
 
-      // If we reach here, no fallback succeeded
+      // If SMTP/Mailgun failed, try Gmail API (OAuth2) fallback
+      if ((isTimeout || true) && gmailApiTransporter) {
+        try {
+          console.log('Attempting Gmail API fallback (OAuth2)');
+          const gmailInfo = await gmailApiTransporter.sendMail(mailOptions);
+          console.log('Email sent successfully via Gmail API');
+          console.log('Gmail API response:', gmailInfo);
+          return res.status(200).json({
+            message: 'Message sent successfully (via Gmail API)',
+            transport: 'gmail-api',
+            messageId: gmailInfo.messageId
+          });
+        } catch (gmailErr) {
+          console.error('Gmail API fallback failed:', gmailErr);
+          smtpError = gmailErr; // override for user message
+        }
+      }
+
+      // If we reach here, no transport succeeded
       throw smtpError;
     }
 
   } catch (error) {
-    console.error("❌ Send message error occurred");
+    console.error("Send message error occurred");
     console.error("Error type:", error.constructor.name);
     console.error("Error message:", error.message);
     console.error("Error code:", error.code);
@@ -309,7 +354,7 @@ const testEmailConnection = async (req, res) => {
     try {
       const verified = await transporter.verify();
       if (verified) {
-        console.log("✅ Email transporter is working correctly");
+        console.log("Email transporter is working correctly");
         return res.status(200).json({
           success: true,
           message: "Email service is configured and working (SMTP)!",
@@ -348,7 +393,7 @@ const testEmailConnection = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("❌ Email test error:", error);
+    console.error("Email test error:", error);
     res.status(500).json({ 
       success: false,
       message: "Email connection test failed",
