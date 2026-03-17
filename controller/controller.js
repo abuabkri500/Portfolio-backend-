@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const mg = require('nodemailer-mailgun-transport');
 const fs = require("fs");
 const { google } = require('googleapis');
+require("dotenv").config();
 
 // Check if Cloudinary credentials are available
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
